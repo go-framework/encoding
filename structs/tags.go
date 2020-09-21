@@ -38,7 +38,7 @@ func parseTag(tag, separated string) (string, tagOptions) {
 // Contains reports whether a separated list of options
 // contains a particular substr flag. substr must be surrounded by a
 // string boundary or separated.
-func (o tagOptions) Contains(separated, optionName string) bool {
+func (o tagOptions) Contains(optionName, separated string) bool {
 	if len(o) == 0 {
 		return false
 	}

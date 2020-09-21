@@ -1,6 +1,7 @@
 package structs
 
 import (
+	"bytes"
 	"math"
 	"reflect"
 	"testing"
@@ -12,6 +13,59 @@ type AnonymousT struct {
 
 type T struct {
 	Name string
+}
+
+type StringTag struct {
+	Data interface{} `map:"data,string"`
+}
+
+type BytesTag struct {
+	Data interface{} `map:"data,bytes"`
+}
+
+type JSONTag struct {
+	Data interface{} `map:"data,json"`
+}
+
+type Text struct {
+	Name string
+}
+
+func (t Text) MarshalText() ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.WriteString(t.Name)
+	return buf.Bytes(), nil
+}
+
+type Binary struct {
+	Name string
+}
+
+func (t Binary) MarshalBinary() ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.WriteString(t.Name)
+	return buf.Bytes(), nil
+}
+
+type JSON struct {
+	Name string
+}
+
+func (t JSON) MarshalJSON() ([]byte, error) {
+	buf := bytes.Buffer{}
+	buf.WriteByte('{')
+	buf.WriteString(`"name":"`)
+	buf.WriteString(t.Name)
+	buf.WriteByte('"')
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
+}
+
+type Pointer struct {
+	Int    *int64
+	Float  *float64
+	String *string
+	Bytes  *[]byte
 }
 
 func Test_encodeState_MarshalMap(t *testing.T) {
@@ -287,6 +341,317 @@ func Test_encodeState_MarshalMap(t *testing.T) {
 				"Any": map[string]interface{}{
 					"Name": "Interface",
 				},
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option error",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: struct {
+					Any interface{} `map:"any,string"`
+				}{
+					Any: T{
+						Name: "Interface",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "bytes tag option error",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: struct {
+					Any interface{} `map:"any,bytes"`
+				}{
+					Any: T{
+						Name: "Interface",
+					},
+				},
+			},
+			wantErr: true,
+		},
+		// string tag
+		{
+			name: "string tag option with Text",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: Text{
+						Name: "text",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{116, 101, 120, 116},
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option with Text pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: &Text{
+						Name: "text",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{116, 101, 120, 116},
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option with Binary",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: Binary{
+						Name: "binary",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{98, 105, 110, 97, 114, 121},
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option with Binary pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: &Binary{
+						Name: "binary",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{98, 105, 110, 97, 114, 121},
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option with JSON",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "string tag option with JSON pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: StringTag{
+					Data: &JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		// bytes tag
+		{
+			name: "bytes tag option with Text",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: Text{
+						Name: "text",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{116, 101, 120, 116},
+			},
+			wantErr: false,
+		},
+		{
+			name: "bytes tag option with Text pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: &Text{
+						Name: "text",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{116, 101, 120, 116},
+			},
+			wantErr: false,
+		},
+		{
+			name: "bytes tag option with Binary",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: Binary{
+						Name: "binary",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{98, 105, 110, 97, 114, 121},
+			},
+			wantErr: false,
+		},
+		{
+			name: "bytes tag option with Binary pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: &Binary{
+						Name: "binary",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte{98, 105, 110, 97, 114, 121},
+			},
+			wantErr: false,
+		},
+		{
+			name: "bytes tag option with JSON",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "bytes tag option with JSON pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: BytesTag{
+					Data: &JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		// json tag
+		{
+			name: "json tag option with JSON",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: JSONTag{
+					Data: JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "json tag option with JSON pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: JSONTag{
+					Data: &JSON{
+						Name: "json",
+					},
+				},
+			},
+			want: map[string]interface{}{
+				"data": []byte(`{"name":"json"}`),
+			},
+			wantErr: false,
+		},
+		{
+			name: "pointer",
+			fields: fields{
+				tag:       Tag,
+				separated: Separated,
+			},
+			args: args{
+				data: Pointer{
+					Int:    new(int64),
+					Float:  new(float64),
+					String: new(string),
+					Bytes:  &[]byte{1, 2, 3, 4, 5, 6},
+				},
+			},
+			want: map[string]interface{}{
+				"Int":    new(int64),
+				"Float":  new(float64),
+				"String": new(string),
+				"Bytes":  &[]byte{1, 2, 3, 4, 5, 6},
 			},
 			wantErr: false,
 		},

@@ -1,7 +1,10 @@
 package structs
 
 import (
+	"encoding"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"reflect"
 )
 
@@ -40,9 +43,11 @@ func (e MapEncode) MarshalMap(data interface{}) (map[string]interface{}, error) 
 	if e.tag == "" {
 		e.tag = Tag
 	}
+
 	if f, ok := data.(MapMarshaler); ok {
 		return f.MarshalMap()
 	}
+
 	var v = reflect.ValueOf(data)
 	if v.Kind() == reflect.Ptr {
 		v = v.Elem()
@@ -85,18 +90,93 @@ func (e MapEncode) MarshalMap(data interface{}) (map[string]interface{}, error) 
 		if tag == "-" {
 			continue
 		}
-		name, _ := parseTag(tag, e.separated)
+		name, tagOptions := parseTag(tag, e.separated)
 		if !isValidTag(name) {
 			name = sf.Name
 		}
+		vf := v.Field(i)
+		if vf.Type().Kind() == reflect.Ptr {
+			vf = vf.Elem()
+		}
 		// Type value
-		switch sf.Type.Kind() {
+		switch vf.Type().Kind() {
 		case reflect.Struct, reflect.Ptr, reflect.Interface:
-			sr, err := e.MarshalMap(v.Field(i).Interface())
-			if err != nil {
-				return nil, err
+			if tagOptions.Contains("json", e.separated) {
+				if jsonMarshaler, ok := v.Field(i).Interface().(json.Marshaler); ok {
+					data, err := jsonMarshaler.MarshalJSON()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else {
+					data, err := json.Marshal(v.Field(i).Interface())
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				}
+			} else if tagOptions.Contains("string", e.separated) {
+				// string tag option
+				if textMarshaler, ok := v.Field(i).Interface().(encoding.TextMarshaler); ok {
+					data, err := textMarshaler.MarshalText()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else if jsonMarshaler, ok := v.Field(i).Interface().(json.Marshaler); ok {
+					data, err := jsonMarshaler.MarshalJSON()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else if binaryMarshaler, ok := v.Field(i).Interface().(encoding.BinaryMarshaler); ok {
+					data, err := binaryMarshaler.MarshalBinary()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else {
+					return nil, fmt.Errorf("filed: %s with 'string' tag have not implment TextMarshaler/json.Marshaler/BinaryMarshaler", sf.Name)
+				}
+			} else if tagOptions.Contains("bytes", e.separated) {
+				// bytes tag option
+				if binaryMarshaler, ok := v.Field(i).Interface().(encoding.BinaryMarshaler); ok {
+					data, err := binaryMarshaler.MarshalBinary()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else if jsonMarshaler, ok := v.Field(i).Interface().(json.Marshaler); ok {
+					data, err := jsonMarshaler.MarshalJSON()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else if textMarshaler, ok := v.Field(i).Interface().(encoding.TextMarshaler); ok {
+					data, err := textMarshaler.MarshalText()
+					if err != nil {
+						return nil, err
+					}
+					ret[name] = data
+					continue
+				} else {
+					return nil, fmt.Errorf("filed: %s with 'bytes' tag have not implment BinaryMarshaler/json.Marshaler/TextMarshaler", sf.Name)
+				}
+			} else {
+				// Recursion call anonymous filed
+				sr, err := e.MarshalMap(v.Field(i).Interface())
+				if err != nil {
+					return nil, err
+				}
+				ret[name] = sr
 			}
-			ret[name] = sr
 		default:
 			ret[name] = v.Field(i).Interface()
 		}
